@@ -41,8 +41,8 @@ def test_create_user_already_registered(client, user):
         json={
             "username": user.username,
             "email": user.email,
-            "password": "secret"
-        }
+            "password": "secret",
+        },
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -76,9 +76,10 @@ def test_detail_user_not_found(client):
     assert response.json() == {"detail": "User not found"}
 
 
-def test_update_user(client, user):
+def test_update_user(client, user, token):
     response = client.put(
-        "/users/1/",
+        f"/users/{user.id}/",
+        headers={"Authorization": f"Bearer {token}"},
         json={
             "username": "bob",
             "email": "bob@example.com",
@@ -90,7 +91,7 @@ def test_update_user(client, user):
     assert response.json() == {
         "username": "bob",
         "email": "bob@example.com",
-        "id": 1,
+        "id": user.id,
     }
 
 
@@ -104,12 +105,44 @@ def test_update_user_not_found(client):
         },
     )
 
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json() == {"detail": "User not found"}
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_delete_user(client, user):
-    response = client.delete("/users/1")
+def test_update_user_with_invalid_user(client, token):
+    response = client.put(
+        "/users/123/",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "mynewpassword",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {"detail": "Not enough permissions"}
+
+
+def test_update_user_with_invalid_credentials(client, user):
+    response = client.put(
+        f"/users/{user.id}/",
+        headers={"Authorization": "Bearer my-token"},
+        json={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "mynewpassword",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {"detail": "Could not validate credentials"}
+
+
+def test_delete_user(client, user, token):
+    response = client.delete(
+        f"/users/{user.id}", headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {"message": "User deleted"}
@@ -118,5 +151,58 @@ def test_delete_user(client, user):
 def test_delete_user_not_found(client):
     response = client.delete("/users/123/")
 
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json() == {"detail": "User not found"}
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {"detail": "Not authenticated"}
+
+
+def test_delete_user_with_invalid_user(client, token):
+    response = client.delete(
+        "/users/123/",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {"detail": "Not enough permissions"}
+
+
+def test_delete_user_with_invalid_credentials(client, user):
+    response = client.delete(
+        f"/users/{user.id}/",
+        headers={"Authorization": "Bearer my-token"}
+    )
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {"detail": "Could not validate credentials"}
+
+
+def test_get_token(client, user):
+    response = client.post(
+        "/token/",
+        data={"username": user.email, "password": user.clean_password},
+    )
+
+    token = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert "access_token" in token
+    assert "token_type" in token
+
+
+def test_get_token_invalid_user(client):
+    response = client.post(
+        "/token/",
+        data={"username": "test@test.com", "password": "test123"},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {"detail": "Incorrect email or password"}
+
+
+def test_get_token_invalid_password(client, user):
+    response = client.post(
+        "/token/",
+        data={"username": f"{user.email}", "password": "test123"},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {"detail": "Incorrect email or password"}
