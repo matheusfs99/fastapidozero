@@ -59,10 +59,7 @@ def detail_user(user_id: int, session: Session):
 
 @router.put("/{user_id}/", response_model=UserPublic)
 def update_user(
-    user_id: int,
-    user: UserSchema,
-    session: Session,
-    current_user: CurrentUser
+    user_id: int, user: UserSchema, session: Session, current_user: CurrentUser
 ):
     if current_user.id != user_id:
         raise HTTPException(

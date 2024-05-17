@@ -95,9 +95,9 @@ def test_update_user_not_found(client):
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_update_user_with_invalid_user(client, token):
+def test_update_user_with_invalid_user(client, other_user, token):
     response = client.put(
-        "/users/123/",
+        f"/users/{other_user.id}/",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "username": "bob",
@@ -141,9 +141,10 @@ def test_delete_user_not_found(client):
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_delete_user_with_invalid_user(client, token):
+def test_delete_user_with_invalid_user(client, other_user, token):
     response = client.delete(
-        "/users/123/", headers={"Authorization": f"Bearer {token}"}
+        f"/users/{other_user.id}/",
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
